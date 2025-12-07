@@ -30,7 +30,7 @@ const Landing = () => {
       <header className="border-b border-border bg-card">
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-2">
-            
+            <img src="/images/worknex-logo.png" alt="Worknex" className="h-8 w-8" />
             <span className="text-lg font-bold text-foreground">Worknex</span>
           </div>
           <div className="flex items-center gap-3">

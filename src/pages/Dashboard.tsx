@@ -42,7 +42,10 @@ const Dashboard = () => {
       {/* Header */}
       <header className="sticky top-0 z-10 border-b border-border bg-card">
         <div className="container flex h-14 items-center justify-between">
-          <h1 className="text-lg font-bold text-foreground">HVAC Quotes</h1>
+          <div className="flex items-center gap-2">
+            <img src="/images/worknex-logo.png" alt="Worknex" className="h-7 w-7" />
+            <span className="text-lg font-bold text-foreground">Worknex</span>
+          </div>
           <div className="flex items-center gap-2">
             <Link to="/settings">
               <Button variant="ghost" size="icon">
