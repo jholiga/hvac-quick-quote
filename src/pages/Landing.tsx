@@ -1,63 +1,49 @@
-import { Wrench, FileText, Smartphone, Zap } from 'lucide-react';
+import { FileText, Smartphone, Zap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-
 const Landing = () => {
-  const { isLoggedIn, isLoading } = useAuth();
-
-  const features = [
-    {
-      icon: Smartphone,
-      title: 'Mobile-First',
-      description: 'Built for the field. Large buttons, fast inputs, works in bright sunlight.',
-    },
-    {
-      icon: Wrench,
-      title: 'HVAC-Specific',
-      description: 'Pre-loaded with common parts, markup helpers, and trade pricing.',
-    },
-    {
-      icon: FileText,
-      title: 'Professional PDFs',
-      description: 'Clean quotes generated instantly. Send before you leave the job.',
-    },
-  ];
-
+  const {
+    isLoggedIn,
+    isLoading
+  } = useAuth();
+  const features = [{
+    icon: Smartphone,
+    title: 'Mobile-First',
+    description: 'Built for the field. Large buttons, fast inputs, works in bright sunlight.'
+  }, {
+    icon: Wrench,
+    title: 'HVAC-Specific',
+    description: 'Pre-loaded with common parts, markup helpers, and trade pricing.'
+  }, {
+    icon: FileText,
+    title: 'Professional PDFs',
+    description: 'Clean quotes generated instantly. Send before you leave the job.'
+  }];
   if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
+    return <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="text-muted-foreground">Loading...</div>
-      </div>
-    );
+      </div>;
   }
-
-  return (
-    <div className="min-h-screen bg-background">
+  return <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b border-border bg-card">
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-              <Wrench className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <span className="text-lg font-bold text-foreground">HVAC Quote</span>
+            
+            <span className="text-lg font-bold text-foreground">Worknex</span>
           </div>
           <div className="flex items-center gap-3">
-            {isLoggedIn ? (
-              <Link to="/dashboard">
+            {isLoggedIn ? <Link to="/dashboard">
                 <Button>Go to Dashboard</Button>
-              </Link>
-            ) : (
-              <>
+              </Link> : <>
                 <Link to="/auth?mode=login">
                   <Button variant="ghost">Log In</Button>
                 </Link>
                 <Link to="/auth?mode=signup">
                   <Button>Get Started</Button>
                 </Link>
-              </>
-            )}
+              </>}
           </div>
         </div>
       </header>
@@ -74,19 +60,20 @@ const Landing = () => {
               Professional Quotes
               <span className="block text-primary">In 60 Seconds</span>
             </h1>
-            <p className="mt-6 animate-slide-up text-lg text-muted-foreground md:text-xl" style={{ animationDelay: '0.1s' }}>
+            <p className="mt-6 animate-slide-up text-lg text-muted-foreground md:text-xl" style={{
+            animationDelay: '0.1s'
+          }}>
               Create clean, professional quotes on-site. 
               Enter the price, add scope, send to customer. Done.
             </p>
-            <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row animate-slide-up" style={{ animationDelay: '0.2s' }}>
-              {isLoggedIn ? (
-                <Link to="/dashboard">
+            <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row animate-slide-up" style={{
+            animationDelay: '0.2s'
+          }}>
+              {isLoggedIn ? <Link to="/dashboard">
                   <Button size="lg" className="h-14 px-8 text-lg">
                     Go to Dashboard
                   </Button>
-                </Link>
-              ) : (
-                <>
+                </Link> : <>
                   <Link to="/auth?mode=signup">
                     <Button size="lg" className="h-14 px-8 text-lg">
                       Start Free
@@ -97,8 +84,7 @@ const Landing = () => {
                       Log In
                     </Button>
                   </Link>
-                </>
-              )}
+                </>}
             </div>
           </div>
         </div>
@@ -123,8 +109,7 @@ const Landing = () => {
                 </div>
                 {/* Quote cards */}
                 <div className="space-y-2">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="rounded-lg border border-border bg-muted/30 p-3">
+                  {[1, 2, 3].map(i => <div key={i} className="rounded-lg border border-border bg-muted/30 p-3">
                       <div className="flex justify-between items-start">
                         <div className="space-y-1.5">
                           <div className="h-4 w-28 rounded bg-foreground/20"></div>
@@ -132,8 +117,7 @@ const Landing = () => {
                         </div>
                         <div className="h-5 w-16 rounded bg-primary/20"></div>
                       </div>
-                    </div>
-                  ))}
+                    </div>)}
                 </div>
               </div>
             </div>
@@ -145,19 +129,15 @@ const Landing = () => {
       <section className="border-t border-border bg-muted/30 py-16 md:py-24">
         <div className="container">
           <div className="mx-auto grid max-w-4xl gap-6 md:grid-cols-3">
-            {features.map((feature, index) => (
-              <div 
-                key={feature.title}
-                className="animate-slide-up rounded-xl bg-card p-6 shadow-sm ring-1 ring-border"
-                style={{ animationDelay: `${0.1 * (index + 1)}s` }}
-              >
+            {features.map((feature, index) => <div key={feature.title} className="animate-slide-up rounded-xl bg-card p-6 shadow-sm ring-1 ring-border" style={{
+            animationDelay: `${0.1 * (index + 1)}s`
+          }}>
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
                   <feature.icon className="h-6 w-6 text-primary" />
                 </div>
                 <h3 className="mt-4 text-lg font-semibold text-foreground">{feature.title}</h3>
                 <p className="mt-2 text-sm text-muted-foreground">{feature.description}</p>
-              </div>
-            ))}
+              </div>)}
           </div>
         </div>
       </section>
@@ -172,13 +152,11 @@ const Landing = () => {
             <p className="mt-4 text-lg text-muted-foreground">
               Send professional quotes that close jobs.
             </p>
-            {!isLoggedIn && (
-              <Link to="/auth?mode=signup" className="mt-8 inline-block">
+            {!isLoggedIn && <Link to="/auth?mode=signup" className="mt-8 inline-block">
                 <Button size="lg" className="h-14 px-8 text-lg">
                   Create Free Account
                 </Button>
-              </Link>
-            )}
+              </Link>}
           </div>
         </div>
       </section>
@@ -189,8 +167,6 @@ const Landing = () => {
           <p>Built for HVAC professionals who quote on the go.</p>
         </div>
       </footer>
-    </div>
-  );
+    </div>;
 };
-
 export default Landing;
