@@ -64,7 +64,7 @@ export const useQuotes = () => {
       job_title: quote.jobTitle,
       scope_of_work: quote.scopeOfWork,
       internal_notes: quote.internalNotes,
-      line_items: quote.lineItems,
+      line_items: JSON.parse(JSON.stringify(quote.lineItems)),
       is_lump_sum: quote.isLumpSum,
       lump_sum_price: quote.lumpSumPrice,
       tax_rate: quote.taxRate,
