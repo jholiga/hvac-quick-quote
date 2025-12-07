@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { Wrench, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,7 @@ const Auth = () => {
   const [searchParams] = useSearchParams();
   const mode = searchParams.get('mode') || 'login';
   const navigate = useNavigate();
-  const { login, signup } = useAuth();
+  const { login, signup, resetPassword, isLoggedIn, isLoading: authLoading } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -21,14 +21,25 @@ const Auth = () => {
   const isLogin = mode === 'login';
   const isForgot = mode === 'forgot';
 
+  // Redirect if already logged in
+  useEffect(() => {
+    if (!authLoading && isLoggedIn) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isLoggedIn, authLoading, navigate]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     if (isForgot) {
-      // Demo: just show success
-      toast.success('Password reset email sent! (Demo mode)');
+      const result = await resetPassword(email);
       setIsLoading(false);
+      if (result.success) {
+        toast.success('Password reset email sent! Check your inbox.');
+      } else {
+        toast.error(result.error || 'Failed to send reset email');
+      }
       return;
     }
 
@@ -45,6 +56,14 @@ const Auth = () => {
       toast.error(result.error || 'Something went wrong');
     }
   };
+
+  if (authLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-background">

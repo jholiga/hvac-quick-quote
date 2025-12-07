@@ -2,16 +2,18 @@ import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
   ArrowLeft, Plus, Trash2, FileText, Send, Save, 
-  Eye, ChevronDown, ChevronUp, DollarSign
+  Eye, ChevronDown, ChevronUp, DollarSign, Mail, MessageSquare
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { storage, generateQuoteNumber } from '@/lib/storage';
-import { downloadPDF, previewPDF } from '@/lib/pdfGenerator';
-import { Quote, LineItem, HVAC_DEFAULTS, BusinessSettings } from '@/types/quote';
+import { downloadPDF, previewPDF, getPDFBlob } from '@/lib/pdfGenerator';
+import { Quote, LineItem, HVAC_DEFAULTS, BusinessSettings, DEFAULT_SETTINGS } from '@/types/quote';
+import { useSettings } from '@/hooks/useSettings';
+import { useQuotes, generateQuoteNumber } from '@/hooks/useQuotes';
+import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { v4 as uuidv4 } from 'uuid';
 import {
@@ -32,37 +34,48 @@ const QuoteBuilder = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const isNew = id === 'new';
+  const { user } = useAuth();
+  const { settings } = useSettings();
+  const { saveQuote, getQuote } = useQuotes();
   
-  const [settings, setSettings] = useState<BusinessSettings>(storage.getSettings());
   const [showPreview, setShowPreview] = useState(false);
   const [pdfDataUrl, setPdfDataUrl] = useState<string>('');
   const [showAddItem, setShowAddItem] = useState(false);
+  const [showSendOptions, setShowSendOptions] = useState(false);
+  const [isLoading, setIsLoading] = useState(!isNew);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const [quote, setQuote] = useState<Quote>(() => {
-    if (!isNew && id) {
-      const existing = storage.getQuote(id);
-      if (existing) return existing;
-    }
-    return {
-      id: uuidv4(),
-      customerName: '',
-      customerPhone: '',
-      customerEmail: '',
-      jobTitle: '',
-      internalNotes: '',
-      lineItems: [],
-      isLumpSum: false,
-      taxRate: settings.taxRate,
-      status: 'draft',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      quoteNumber: generateQuoteNumber(),
-    };
+  const [quote, setQuote] = useState<Quote>({
+    id: uuidv4(),
+    customerName: '',
+    customerPhone: '',
+    customerEmail: '',
+    jobTitle: '',
+    scopeOfWork: '',
+    internalNotes: '',
+    lineItems: [],
+    isLumpSum: true,
+    lumpSumPrice: 0,
+    taxRate: settings.taxRate,
+    status: 'draft',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    quoteNumber: generateQuoteNumber(),
   });
 
   useEffect(() => {
-    setSettings(storage.getSettings());
-  }, []);
+    if (!isNew && id) {
+      loadQuote(id);
+    }
+  }, [id, isNew]);
+
+  const loadQuote = async (quoteId: string) => {
+    const existingQuote = await getQuote(quoteId);
+    if (existingQuote) {
+      setQuote(existingQuote);
+    }
+    setIsLoading(false);
+  };
 
   const updateQuote = (updates: Partial<Quote>) => {
     setQuote(prev => ({
@@ -99,14 +112,18 @@ const QuoteBuilder = () => {
   };
 
   const totals = useMemo(() => {
+    if (quote.isLumpSum) {
+      const subtotal = quote.lumpSumPrice;
+      const tax = subtotal * (quote.taxRate / 100);
+      return { subtotal, tax, total: subtotal + tax };
+    }
     const subtotal = quote.lineItems.reduce((sum, item) => {
       const base = item.quantity * item.unitPrice;
       return sum + (item.applyMarkup ? base * settings.defaultMarkup : base);
     }, 0);
     const tax = subtotal * (quote.taxRate / 100);
-    const total = subtotal + tax;
-    return { subtotal, tax, total };
-  }, [quote.lineItems, quote.taxRate, settings.defaultMarkup]);
+    return { subtotal, tax, total: subtotal + tax };
+  }, [quote.lineItems, quote.taxRate, quote.isLumpSum, quote.lumpSumPrice, settings.defaultMarkup]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -115,14 +132,25 @@ const QuoteBuilder = () => {
     }).format(amount);
   };
 
-  const handleSave = (status: 'draft' | 'sent' = 'draft') => {
-    const updatedQuote = { ...quote, status };
-    storage.saveQuote(updatedQuote);
-    setQuote(updatedQuote);
-    toast.success(status === 'sent' ? 'Quote sent!' : 'Quote saved!');
-    if (isNew) {
-      navigate(`/quote/${quote.id}`, { replace: true });
+  const handleSave = async (status: 'draft' | 'sent' = 'draft') => {
+    if (!quote.customerName.trim()) {
+      toast.error('Please enter customer name');
+      return;
     }
+
+    setIsSaving(true);
+    try {
+      const updatedQuote = { ...quote, status };
+      await saveQuote(updatedQuote);
+      setQuote(updatedQuote);
+      toast.success(status === 'sent' ? 'Quote sent!' : 'Quote saved!');
+      if (isNew) {
+        navigate(`/quote/${quote.id}`, { replace: true });
+      }
+    } catch (error) {
+      toast.error('Failed to save quote');
+    }
+    setIsSaving(false);
   };
 
   const handlePreview = () => {
@@ -136,11 +164,61 @@ const QuoteBuilder = () => {
     toast.success('PDF downloaded!');
   };
 
-  const handleSend = () => {
-    handleSave('sent');
+  const handleSendEmail = async () => {
+    if (!quote.customerEmail) {
+      toast.error('Customer email is required');
+      return;
+    }
+    
+    // Save quote first
+    await handleSave('sent');
+    
+    // Generate PDF and create mailto link
+    const subject = encodeURIComponent(`Quote ${quote.quoteNumber} - ${quote.jobTitle || 'HVAC Service'}`);
+    const body = encodeURIComponent(
+      `Hi ${quote.customerName},\n\n` +
+      `Please find attached your quote for ${quote.jobTitle || 'HVAC services'}.\n\n` +
+      `Quote Total: ${formatCurrency(totals.total)}\n\n` +
+      `Please let me know if you have any questions.\n\n` +
+      `Best regards,\n${settings.businessName}\n${settings.phone}`
+    );
+    
+    window.location.href = `mailto:${quote.customerEmail}?subject=${subject}&body=${body}`;
+    
+    // Also download the PDF so they can attach it
     downloadPDF(quote, settings);
-    toast.success('Quote marked as sent & PDF downloaded!');
+    toast.success('Email opened with PDF downloaded - attach the PDF to send!');
+    setShowSendOptions(false);
   };
+
+  const handleSendText = async () => {
+    if (!quote.customerPhone) {
+      toast.error('Customer phone is required');
+      return;
+    }
+    
+    await handleSave('sent');
+    
+    const message = encodeURIComponent(
+      `Hi ${quote.customerName}! Here's your quote for ${quote.jobTitle || 'HVAC service'}: ` +
+      `${formatCurrency(totals.total)}. I'll send the full PDF shortly. - ${settings.businessName}`
+    );
+    
+    const phone = quote.customerPhone.replace(/\D/g, '');
+    window.location.href = `sms:${phone}?body=${message}`;
+    
+    downloadPDF(quote, settings);
+    toast.success('Text opened with PDF downloaded!');
+    setShowSendOptions(false);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-background pb-32">
@@ -157,12 +235,10 @@ const QuoteBuilder = () => {
               {isNew ? 'New Quote' : `Quote ${quote.quoteNumber}`}
             </span>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => handleSave('draft')}>
-              <Save className="mr-1 h-4 w-4" />
-              Save
-            </Button>
-          </div>
+          <Button variant="ghost" size="sm" onClick={() => handleSave('draft')} disabled={isSaving}>
+            <Save className="mr-1 h-4 w-4" />
+            {isSaving ? 'Saving...' : 'Save'}
+          </Button>
         </div>
       </header>
 
@@ -206,6 +282,13 @@ const QuoteBuilder = () => {
                 />
               </div>
             </div>
+          </div>
+        </section>
+
+        {/* Job Details */}
+        <section className="mb-6 animate-fade-in" style={{ animationDelay: '0.1s' }}>
+          <h2 className="section-title mb-3">Job Details</h2>
+          <div className="space-y-3 rounded-xl border border-border bg-card p-4">
             <div>
               <Label htmlFor="jobTitle" className="text-sm">Job Title</Label>
               <Input
@@ -216,62 +299,29 @@ const QuoteBuilder = () => {
                 className="mt-1"
               />
             </div>
+            <div>
+              <Label htmlFor="scopeOfWork" className="text-sm">Scope of Work</Label>
+              <Textarea
+                id="scopeOfWork"
+                value={quote.scopeOfWork}
+                onChange={(e) => updateQuote({ scopeOfWork: e.target.value })}
+                placeholder="Replace failed capacitor, test system operation, verify proper cooling..."
+                className="mt-1"
+                rows={3}
+              />
+            </div>
           </div>
         </section>
 
-        {/* Line Items */}
-        <section className="mb-6 animate-fade-in" style={{ animationDelay: '0.1s' }}>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="section-title">Line Items</h2>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => setShowAddItem(true)}
-              className="h-9"
-            >
-              <Plus className="mr-1 h-4 w-4" />
-              Add Item
-            </Button>
-          </div>
-
-          {quote.lineItems.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-8 text-center">
-              <DollarSign className="mb-2 h-8 w-8 text-muted-foreground/50" />
-              <p className="text-sm text-muted-foreground">No items added yet</p>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="mt-2"
-                onClick={() => setShowAddItem(true)}
-              >
-                Add your first item
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {quote.lineItems.map((item, index) => (
-                <LineItemCard
-                  key={item.id}
-                  item={item}
-                  index={index}
-                  markup={settings.defaultMarkup}
-                  onUpdate={(updates) => updateLineItem(item.id, updates)}
-                  onRemove={() => removeLineItem(item.id)}
-                />
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* Options */}
+        {/* Pricing */}
         <section className="mb-6 animate-fade-in" style={{ animationDelay: '0.2s' }}>
-          <h2 className="section-title mb-3">Quote Options</h2>
+          <h2 className="section-title mb-3">Pricing</h2>
           <div className="space-y-4 rounded-xl border border-border bg-card p-4">
             <div className="flex items-center justify-between">
               <div>
                 <span className="font-medium text-foreground">Lump Sum Quote</span>
                 <p className="text-sm text-muted-foreground">
-                  Hide itemized details on customer PDF
+                  {quote.isLumpSum ? 'Enter total price' : 'Itemized pricing'}
                 </p>
               </div>
               <Switch
@@ -279,7 +329,62 @@ const QuoteBuilder = () => {
                 onCheckedChange={(checked) => updateQuote({ isLumpSum: checked })}
               />
             </div>
-            <div className="flex items-center justify-between">
+
+            {quote.isLumpSum ? (
+              <div>
+                <Label htmlFor="lumpSumPrice" className="text-sm">Total Price</Label>
+                <div className="mt-1 flex items-center gap-2">
+                  <span className="text-lg font-medium text-muted-foreground">$</span>
+                  <Input
+                    id="lumpSumPrice"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={quote.lumpSumPrice || ''}
+                    onChange={(e) => updateQuote({ lumpSumPrice: parseFloat(e.target.value) || 0 })}
+                    placeholder="0.00"
+                    className="text-xl font-semibold"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-muted-foreground">Line Items</span>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setShowAddItem(true)}
+                    className="h-8"
+                  >
+                    <Plus className="mr-1 h-4 w-4" />
+                    Add
+                  </Button>
+                </div>
+
+                {quote.lineItems.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-6 text-center">
+                    <DollarSign className="mb-2 h-6 w-6 text-muted-foreground/50" />
+                    <p className="text-sm text-muted-foreground">No items yet</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {quote.lineItems.map((item, index) => (
+                      <LineItemCard
+                        key={item.id}
+                        item={item}
+                        index={index}
+                        markup={settings.defaultMarkup}
+                        onUpdate={(updates) => updateLineItem(item.id, updates)}
+                        onRemove={() => removeLineItem(item.id)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex items-center justify-between border-t border-border pt-4">
               <Label htmlFor="taxRate" className="font-medium">Tax Rate (%)</Label>
               <Input
                 id="taxRate"
@@ -303,13 +408,13 @@ const QuoteBuilder = () => {
               value={quote.internalNotes}
               onChange={(e) => updateQuote({ internalNotes: e.target.value })}
               placeholder="Notes for yourself (not shown on PDF)"
-              rows={3}
+              rows={2}
             />
           </div>
         </section>
 
         {/* Totals */}
-        <section className="animate-fade-in rounded-xl border border-primary/30 bg-primary/5 p-4" style={{ animationDelay: '0.4s' }}>
+        <section className="animate-fade-in rounded-xl border-2 border-primary/30 bg-primary/5 p-4" style={{ animationDelay: '0.4s' }}>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Subtotal</span>
@@ -350,7 +455,7 @@ const QuoteBuilder = () => {
           </Button>
           <Button 
             className="flex-1 h-14"
-            onClick={handleSend}
+            onClick={() => setShowSendOptions(true)}
           >
             <Send className="mr-2 h-5 w-5" />
             Send
@@ -435,6 +540,57 @@ const QuoteBuilder = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Send Options Dialog */}
+      <Dialog open={showSendOptions} onOpenChange={setShowSendOptions}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Send Quote</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-4">
+            <Button 
+              variant="outline" 
+              className="h-16 w-full justify-start gap-4"
+              onClick={handleSendEmail}
+            >
+              <Mail className="h-6 w-6 text-primary" />
+              <div className="text-left">
+                <div className="font-medium">Send via Email</div>
+                <div className="text-sm text-muted-foreground">
+                  {quote.customerEmail || 'No email provided'}
+                </div>
+              </div>
+            </Button>
+            <Button 
+              variant="outline" 
+              className="h-16 w-full justify-start gap-4"
+              onClick={handleSendText}
+            >
+              <MessageSquare className="h-6 w-6 text-primary" />
+              <div className="text-left">
+                <div className="font-medium">Send via Text</div>
+                <div className="text-sm text-muted-foreground">
+                  {quote.customerPhone || 'No phone provided'}
+                </div>
+              </div>
+            </Button>
+            <Button 
+              variant="outline" 
+              className="h-16 w-full justify-start gap-4"
+              onClick={() => {
+                handleDownload();
+                setShowSendOptions(false);
+              }}
+            >
+              <FileText className="h-6 w-6 text-primary" />
+              <div className="text-left">
+                <div className="font-medium">Download PDF Only</div>
+                <div className="text-sm text-muted-foreground">Save and share manually</div>
+              </div>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
@@ -449,7 +605,7 @@ interface LineItemCardProps {
 }
 
 const LineItemCard = ({ item, index, markup, onUpdate, onRemove }: LineItemCardProps) => {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   
   const lineTotal = item.quantity * item.unitPrice * (item.applyMarkup ? markup : 1);
   
@@ -461,65 +617,63 @@ const LineItemCard = ({ item, index, markup, onUpdate, onRemove }: LineItemCardP
   };
 
   return (
-    <div className="rounded-xl border border-border bg-card">
+    <div className="rounded-lg border border-border bg-muted/30">
       <div 
-        className="flex cursor-pointer items-center justify-between p-4"
+        className="flex cursor-pointer items-center justify-between p-3"
         onClick={() => setExpanded(!expanded)}
       >
         <div className="min-w-0 flex-1">
-          <p className="truncate font-medium text-foreground">
+          <p className="truncate font-medium text-foreground text-sm">
             {item.description || `Item ${index + 1}`}
           </p>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             {item.quantity} × {formatCurrency(item.unitPrice * (item.applyMarkup ? markup : 1))}
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="font-semibold tabular-nums text-foreground">
+        <div className="flex items-center gap-2">
+          <span className="font-semibold tabular-nums text-foreground text-sm">
             {formatCurrency(lineTotal)}
           </span>
           {expanded ? (
-            <ChevronUp className="h-5 w-5 text-muted-foreground" />
+            <ChevronUp className="h-4 w-4 text-muted-foreground" />
           ) : (
-            <ChevronDown className="h-5 w-5 text-muted-foreground" />
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
           )}
         </div>
       </div>
       
       {expanded && (
-        <div className="space-y-3 border-t border-border p-4">
+        <div className="space-y-3 border-t border-border p-3">
           <div>
-            <Label className="text-sm">Description</Label>
+            <Label className="text-xs">Description</Label>
             <Input
               value={item.description}
               onChange={(e) => onUpdate({ description: e.target.value })}
-              placeholder="Item description"
-              className="mt-1"
+              className="mt-1 h-9"
               onClick={(e) => e.stopPropagation()}
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label className="text-sm">Quantity</Label>
+              <Label className="text-xs">Qty</Label>
               <Input
                 type="number"
-                min="0"
-                step="0.5"
+                min="1"
                 value={item.quantity}
-                onChange={(e) => onUpdate({ quantity: parseFloat(e.target.value) || 0 })}
-                className="mt-1"
+                onChange={(e) => onUpdate({ quantity: parseInt(e.target.value) || 1 })}
+                className="mt-1 h-9"
                 onClick={(e) => e.stopPropagation()}
               />
             </div>
             <div>
-              <Label className="text-sm">Unit Price (Cost)</Label>
+              <Label className="text-xs">Unit Price</Label>
               <Input
                 type="number"
                 min="0"
                 step="0.01"
                 value={item.unitPrice}
                 onChange={(e) => onUpdate({ unitPrice: parseFloat(e.target.value) || 0 })}
-                className="mt-1"
+                className="mt-1 h-9"
                 onClick={(e) => e.stopPropagation()}
               />
             </div>
@@ -531,21 +685,15 @@ const LineItemCard = ({ item, index, markup, onUpdate, onRemove }: LineItemCardP
                 onCheckedChange={(checked) => onUpdate({ applyMarkup: checked })}
                 onClick={(e) => e.stopPropagation()}
               />
-              <Label className="text-sm">
-                Apply {markup}× markup
-              </Label>
+              <Label className="text-xs">Apply {markup}× markup</Label>
             </div>
-            <Button
-              variant="ghost"
+            <Button 
+              variant="ghost" 
               size="sm"
-              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-              onClick={(e) => {
-                e.stopPropagation();
-                onRemove();
-              }}
+              onClick={(e) => { e.stopPropagation(); onRemove(); }}
+              className="text-destructive hover:text-destructive"
             >
-              <Trash2 className="mr-1 h-4 w-4" />
-              Remove
+              <Trash2 className="h-4 w-4" />
             </Button>
           </div>
         </div>

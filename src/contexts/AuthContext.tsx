@@ -1,41 +1,62 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { storage } from '@/lib/storage';
+import { User, Session } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client';
 
 interface AuthContextType {
   isLoggedIn: boolean;
-  userEmail: string | null;
+  user: User | null;
+  session: Session | null;
+  isLoading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signup: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  logout: () => void;
+  logout: () => Promise<void>;
+  resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const auth = storage.getAuth();
-    if (auth?.isLoggedIn) {
-      setIsLoggedIn(true);
-      setUserEmail(auth.email);
-    }
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        setIsLoading(false);
+      }
+    );
+
+    // THEN check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      setIsLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const login = async (email: string, password: string) => {
-    // Demo auth - in production, this would hit an API
     if (!email || !password) {
       return { success: false, error: 'Please enter email and password' };
     }
-    
-    if (password.length < 6) {
-      return { success: false, error: 'Invalid credentials' };
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+
+    if (error) {
+      if (error.message.includes('Invalid login credentials')) {
+        return { success: false, error: 'Invalid email or password' };
+      }
+      return { success: false, error: error.message };
     }
 
-    storage.login(email);
-    setIsLoggedIn(true);
-    setUserEmail(email);
     return { success: true };
   };
 
@@ -43,29 +64,62 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!email || !password) {
       return { success: false, error: 'Please enter email and password' };
     }
-    
+
     if (password.length < 6) {
       return { success: false, error: 'Password must be at least 6 characters' };
     }
 
-    if (!email.includes('@')) {
-      return { success: false, error: 'Please enter a valid email' };
+    const redirectUrl = `${window.location.origin}/dashboard`;
+
+    const { error } = await supabase.auth.signUp({
+      email: email.trim(),
+      password,
+      options: {
+        emailRedirectTo: redirectUrl,
+      },
+    });
+
+    if (error) {
+      if (error.message.includes('already registered')) {
+        return { success: false, error: 'This email is already registered. Please log in instead.' };
+      }
+      return { success: false, error: error.message };
     }
 
-    storage.login(email);
-    setIsLoggedIn(true);
-    setUserEmail(email);
     return { success: true };
   };
 
-  const logout = () => {
-    storage.logout();
-    setIsLoggedIn(false);
-    setUserEmail(null);
+  const logout = async () => {
+    await supabase.auth.signOut();
+  };
+
+  const resetPassword = async (email: string) => {
+    if (!email) {
+      return { success: false, error: 'Please enter your email' };
+    }
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/auth?mode=login`,
+    });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
   };
 
   return (
-    <AuthContext.Provider value={{ isLoggedIn, userEmail, login, signup, logout }}>
+    <AuthContext.Provider value={{ 
+      isLoggedIn: !!session, 
+      user, 
+      session,
+      isLoading,
+      login, 
+      signup, 
+      logout,
+      resetPassword,
+    }}>
       {children}
     </AuthContext.Provider>
   );
