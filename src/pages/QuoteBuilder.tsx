@@ -231,6 +231,7 @@ const QuoteBuilder = () => {
                 <ArrowLeft className="h-5 w-5" />
               </Button>
             </Link>
+            <img src="/images/worknex-logo.png" alt="Worknex" className="h-7 w-7" />
             <span className="font-semibold text-foreground">
               {isNew ? 'New Quote' : `Quote ${quote.quoteNumber}`}
             </span>
