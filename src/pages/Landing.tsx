@@ -1,4 +1,4 @@
-import { FileText, Smartphone, Zap } from 'lucide-react';
+import { FileText, Smartphone, Wrench, Zap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
