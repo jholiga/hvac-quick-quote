@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
   ArrowLeft, Download, Share2, Eye, FileText, 
-  User, Phone, Mail, Briefcase, Copy, Check
+  User, Phone, Mail, Briefcase, Copy, Check,
+  MessageSquare, Pencil
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { previewPDF, downloadPDF, getPDFBlob } from '@/lib/pdfGenerator';
@@ -15,13 +16,14 @@ const QuotePreview = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { settings } = useSettings();
-  const { getQuote } = useQuotes();
+  const { getQuote, saveQuote } = useQuotes();
   
   const [quote, setQuote] = useState<Quote | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showPdfViewer, setShowPdfViewer] = useState(false);
   const [pdfDataUrl, setPdfDataUrl] = useState<string>('');
   const [copied, setCopied] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -84,31 +86,40 @@ const QuotePreview = () => {
 
   const handleShare = async () => {
     if (!quote) return;
+    setIsSharing(true);
     
-    const pdfBlob = getPDFBlob(quote, settings);
-    const fileName = `Quote-${quote.quoteNumber}-${quote.customerName.replace(/\s+/g, '-')}.pdf`;
-    const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
-    
-    // Check if native share is available (mobile)
-    if (navigator.share && navigator.canShare({ files: [file] })) {
-      try {
+    try {
+      const pdfBlob = getPDFBlob(quote, settings);
+      const fileName = `Quote-${quote.quoteNumber}-${quote.customerName.replace(/\s+/g, '-')}.pdf`;
+      const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+      
+      // Check if native share is available (mobile)
+      if (navigator.share && navigator.canShare({ files: [file] })) {
         await navigator.share({
           title: `Quote ${quote.quoteNumber}`,
           text: `HVAC Quote for ${quote.customerName} - ${formatCurrency(totals.total)}`,
           files: [file],
         });
-        toast.success('Shared successfully!');
-      } catch (error: any) {
-        if (error.name !== 'AbortError') {
-          // Fallback to download if share fails
-          handleDownload();
+        toast.success('Shared!');
+        
+        // Mark as sent after successful share
+        if (quote.status !== 'sent') {
+          const updatedQuote = { ...quote, status: 'sent' as const };
+          await saveQuote(updatedQuote);
+          setQuote(updatedQuote);
         }
+      } else {
+        // Fallback: download and show instructions
+        handleDownload();
+        toast.success('PDF ready - attach to email or text');
       }
-    } else {
-      // Fallback: copy quote info and download
-      handleDownload();
-      toast.success('PDF downloaded - attach to email or text');
+    } catch (error: any) {
+      if (error.name !== 'AbortError') {
+        handleDownload();
+        toast.success('PDF downloaded - attach to email or text');
+      }
     }
+    setIsSharing(false);
   };
 
   const handleCopyQuoteInfo = async () => {
@@ -122,11 +133,19 @@ Total: ${formatCurrency(totals.total)}`;
     try {
       await navigator.clipboard.writeText(info);
       setCopied(true);
-      toast.success('Quote info copied!');
+      toast.success('Copied!');
       setTimeout(() => setCopied(false), 2000);
     } catch {
       toast.error('Failed to copy');
     }
+  };
+
+  const handleMarkAsSent = async () => {
+    if (!quote) return;
+    const updatedQuote = { ...quote, status: 'sent' as const };
+    await saveQuote(updatedQuote);
+    setQuote(updatedQuote);
+    toast.success('Marked as sent');
   };
 
   if (isLoading) {
@@ -142,12 +161,12 @@ Total: ${formatCurrency(totals.total)}`;
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-background pb-32">
+    <div className="flex min-h-screen flex-col bg-background pb-36">
       {/* Header */}
       <header className="sticky top-0 z-10 border-b border-border bg-card">
         <div className="container flex h-14 items-center justify-between">
           <div className="flex items-center gap-2">
-            <Link to={`/quote/${id}`}>
+            <Link to="/dashboard">
               <Button variant="ghost" size="icon" className="h-10 w-10">
                 <ArrowLeft className="h-5 w-5" />
               </Button>
@@ -156,7 +175,8 @@ Total: ${formatCurrency(totals.total)}`;
             <span className="font-semibold text-foreground">Preview & Share</span>
           </div>
           <Link to={`/quote/${id}`}>
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" className="gap-1">
+              <Pencil className="h-4 w-4" />
               Edit
             </Button>
           </Link>
@@ -164,28 +184,29 @@ Total: ${formatCurrency(totals.total)}`;
       </header>
 
       {/* Main Content */}
-      <main className="container flex-1 py-6">
+      <main className="container flex-1 py-6 space-y-5">
         {/* Quote Summary Card */}
-        <section className="mb-6 animate-fade-in">
+        <section className="animate-fade-in">
           <div className="rounded-xl border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10 p-5">
             <div className="mb-4 flex items-start justify-between">
               <div>
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Quote {quote.quoteNumber}
                 </p>
-                <h1 className="mt-1 text-2xl font-bold text-foreground">
+                <h1 className="mt-1 text-3xl font-bold text-foreground">
                   {formatCurrency(totals.total)}
                 </h1>
               </div>
-              <span 
-                className={`rounded-full px-3 py-1 text-xs font-medium ${
+              <button
+                onClick={handleMarkAsSent}
+                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                   quote.status === 'sent' 
                     ? 'bg-primary/20 text-primary' 
-                    : 'bg-muted text-muted-foreground'
+                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
                 }`}
               >
-                {quote.status === 'sent' ? 'Sent' : 'Draft'}
-              </span>
+                {quote.status === 'sent' ? '✓ Sent' : 'Mark as Sent'}
+              </button>
             </div>
             
             {quote.jobTitle && (
@@ -201,62 +222,74 @@ Total: ${formatCurrency(totals.total)}`;
                 <span>{quote.customerName}</span>
               </div>
               {quote.customerPhone && (
-                <div className="flex items-center gap-2 text-muted-foreground">
+                <a href={`tel:${quote.customerPhone}`} className="flex items-center gap-2 text-muted-foreground hover:text-foreground">
                   <Phone className="h-4 w-4" />
                   <span>{quote.customerPhone}</span>
-                </div>
+                </a>
               )}
               {quote.customerEmail && (
-                <div className="flex items-center gap-2 text-muted-foreground">
+                <a href={`mailto:${quote.customerEmail}`} className="flex items-center gap-2 text-muted-foreground hover:text-foreground">
                   <Mail className="h-4 w-4" />
                   <span>{quote.customerEmail}</span>
-                </div>
+                </a>
               )}
             </div>
           </div>
         </section>
 
-        {/* PDF Preview Section */}
-        <section className="mb-6 animate-fade-in" style={{ animationDelay: '0.1s' }}>
-          <h2 className="section-title mb-3">PDF Document</h2>
-          <div className="rounded-xl border border-border bg-card p-4">
+        {/* PDF Section */}
+        <section className="animate-fade-in" style={{ animationDelay: '0.1s' }}>
+          <div className="rounded-xl border border-border bg-card overflow-hidden">
             {!showPdfViewer ? (
-              <div className="flex flex-col items-center justify-center py-8">
-                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-                  <FileText className="h-8 w-8 text-primary" />
+              <button 
+                onClick={handleViewPdf}
+                className="flex w-full items-center justify-between p-5 hover:bg-muted/50 transition-colors"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                    <FileText className="h-6 w-6 text-primary" />
+                  </div>
+                  <div className="text-left">
+                    <p className="font-medium text-foreground">View PDF</p>
+                    <p className="text-sm text-muted-foreground">Tap to preview quote document</p>
+                  </div>
                 </div>
-                <p className="mb-4 text-center text-sm text-muted-foreground">
-                  Professional PDF ready for your customer
-                </p>
-                <Button onClick={handleViewPdf} className="w-full max-w-xs">
-                  <Eye className="mr-2 h-5 w-5" />
-                  View PDF
-                </Button>
-              </div>
+                <Eye className="h-5 w-5 text-muted-foreground" />
+              </button>
             ) : (
-              <div className="space-y-4">
+              <div>
                 <iframe 
                   src={pdfDataUrl} 
-                  className="h-[50vh] w-full rounded-lg border"
+                  className="h-[50vh] w-full border-b"
                   title="PDF Preview"
                 />
-                <Button 
-                  variant="outline" 
-                  onClick={handleOpenPdfNewTab}
-                  className="w-full"
-                >
-                  <Eye className="mr-2 h-4 w-4" />
-                  Open in New Tab
-                </Button>
+                <div className="p-3 flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setShowPdfViewer(false)}
+                    className="flex-1"
+                  >
+                    Collapse
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleOpenPdfNewTab}
+                    className="flex-1"
+                  >
+                    Open Fullscreen
+                  </Button>
+                </div>
               </div>
             )}
           </div>
         </section>
 
-        {/* Quick Copy Section */}
+        {/* Quick Actions */}
         <section className="animate-fade-in" style={{ animationDelay: '0.2s' }}>
-          <h2 className="section-title mb-3">Quick Actions</h2>
-          <div className="rounded-xl border border-border bg-card p-4">
+          <h2 className="text-sm font-medium text-muted-foreground mb-3 px-1">Quick Actions</h2>
+          <div className="space-y-2">
             <Button 
               variant="outline" 
               onClick={handleCopyQuoteInfo}
@@ -269,30 +302,55 @@ Total: ${formatCurrency(totals.total)}`;
               )}
               <span>Copy Quote Summary</span>
             </Button>
-            <p className="mt-2 text-xs text-muted-foreground">
-              Copy quote number, customer, and total to paste in a message
-            </p>
+            
+            {quote.customerPhone && (
+              <a href={`sms:${quote.customerPhone}`} className="block">
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start gap-3 h-12"
+                >
+                  <MessageSquare className="h-5 w-5 text-muted-foreground" />
+                  <span>Text {quote.customerName.split(' ')[0]}</span>
+                </Button>
+              </a>
+            )}
+            
+            {quote.customerEmail && (
+              <a href={`mailto:${quote.customerEmail}?subject=Quote ${quote.quoteNumber}&body=Hi ${quote.customerName.split(' ')[0]},%0D%0A%0D%0APlease find attached your HVAC quote for ${formatCurrency(totals.total)}.%0D%0A%0D%0AThank you!`} className="block">
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start gap-3 h-12"
+                >
+                  <Mail className="h-5 w-5 text-muted-foreground" />
+                  <span>Email {quote.customerName.split(' ')[0]}</span>
+                </Button>
+              </a>
+            )}
           </div>
         </section>
       </main>
 
-      {/* Bottom Actions */}
+      {/* Bottom Actions - Sticky */}
       <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-card pb-safe-bottom">
-        <div className="container flex gap-3 py-4">
+        <div className="container py-4 space-y-3">
+          {/* Primary: Share (uses native share sheet on mobile) */}
+          <Button 
+            className="w-full h-14 text-base font-semibold"
+            onClick={handleShare}
+            disabled={isSharing}
+          >
+            <Share2 className="mr-2 h-5 w-5" />
+            {isSharing ? 'Sharing...' : 'Share PDF'}
+          </Button>
+          
+          {/* Secondary: Download */}
           <Button 
             variant="outline" 
-            className="flex-1 h-14 text-base"
+            className="w-full h-12"
             onClick={handleDownload}
           >
             <Download className="mr-2 h-5 w-5" />
             Download PDF
-          </Button>
-          <Button 
-            className="flex-1 h-14 text-base"
-            onClick={handleShare}
-          >
-            <Share2 className="mr-2 h-5 w-5" />
-            Share PDF
           </Button>
         </div>
       </div>

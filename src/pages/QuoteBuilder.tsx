@@ -1,16 +1,15 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
-  ArrowLeft, Plus, Trash2, FileText, Save, 
-  Eye, ChevronDown, ChevronUp, DollarSign
+  ArrowLeft, Plus, Trash2, Send, Save, 
+  ChevronDown, ChevronUp, DollarSign
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { downloadPDF, previewPDF, getPDFBlob } from '@/lib/pdfGenerator';
-import { Quote, LineItem, HVAC_DEFAULTS, BusinessSettings, DEFAULT_SETTINGS } from '@/types/quote';
+import { Quote, LineItem, HVAC_DEFAULTS } from '@/types/quote';
 import { useSettings } from '@/hooks/useSettings';
 import { useQuotes, generateQuoteNumber } from '@/hooks/useQuotes';
 import { useAuth } from '@/contexts/AuthContext';
@@ -38,8 +37,6 @@ const QuoteBuilder = () => {
   const { settings } = useSettings();
   const { saveQuote, getQuote } = useQuotes();
   
-  const [showPreview, setShowPreview] = useState(false);
-  const [pdfDataUrl, setPdfDataUrl] = useState<string>('');
   const [showAddItem, setShowAddItem] = useState(false);
   const [isLoading, setIsLoading] = useState(!isNew);
   const [isSaving, setIsSaving] = useState(false);
@@ -152,18 +149,7 @@ const QuoteBuilder = () => {
     setIsSaving(false);
   };
 
-  const handlePreview = () => {
-    const dataUrl = previewPDF(quote, settings);
-    setPdfDataUrl(dataUrl);
-    setShowPreview(true);
-  };
-
-  const handleDownload = () => {
-    downloadPDF(quote, settings);
-    toast.success('PDF downloaded!');
-  };
-
-  const handleGenerateQuote = async () => {
+  const handlePreviewAndShare = async () => {
     if (!quote.customerName.trim()) {
       toast.error('Please enter customer name');
       return;
@@ -403,24 +389,16 @@ const QuoteBuilder = () => {
         </section>
       </main>
 
-      {/* Bottom Actions */}
+      {/* Bottom Actions - Single Primary Button */}
       <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-card pb-safe-bottom">
-        <div className="container flex gap-3 py-4">
+        <div className="container py-4">
           <Button 
-            variant="outline" 
-            className="flex-1 h-14"
-            onClick={handlePreview}
-          >
-            <Eye className="mr-2 h-5 w-5" />
-            Preview
-          </Button>
-          <Button 
-            className="flex-[2] h-14 text-base font-semibold"
-            onClick={handleGenerateQuote}
+            className="w-full h-14 text-base font-semibold"
+            onClick={handlePreviewAndShare}
             disabled={isSaving}
           >
-            <FileText className="mr-2 h-5 w-5" />
-            {isSaving ? 'Saving...' : 'Generate Quote'}
+            <Send className="mr-2 h-5 w-5" />
+            {isSaving ? 'Saving...' : 'Preview & Share'}
           </Button>
         </div>
       </div>
@@ -476,32 +454,6 @@ const QuoteBuilder = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Preview Dialog */}
-      <Dialog open={showPreview} onOpenChange={setShowPreview}>
-        <DialogContent className="max-h-[90vh] max-w-3xl overflow-auto p-0">
-          <DialogHeader className="p-4 pb-0">
-            <DialogTitle>Quote Preview</DialogTitle>
-          </DialogHeader>
-          <div className="p-4">
-            {pdfDataUrl && (
-              <iframe 
-                src={pdfDataUrl} 
-                className="h-[70vh] w-full rounded-lg border"
-                title="PDF Preview"
-              />
-            )}
-          </div>
-          <div className="flex gap-3 border-t p-4">
-            <Button variant="outline" className="flex-1" onClick={() => setShowPreview(false)}>
-              Close
-            </Button>
-            <Button className="flex-1" onClick={handleDownload}>
-              <FileText className="mr-2 h-4 w-4" />
-              Download PDF
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
 
     </div>
   );
