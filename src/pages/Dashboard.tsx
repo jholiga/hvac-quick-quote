@@ -91,7 +91,7 @@ const Dashboard = () => {
                 {quotes.map((quote, index) => (
                   <Link
                     key={quote.id}
-                    to={`/quote/${quote.id}`}
+                    to={`/quote/${quote.id}/preview`}
                     className="block animate-slide-up"
                     style={{ animationDelay: `${0.05 * index}s` }}
                   >

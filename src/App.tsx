@@ -9,6 +9,7 @@ import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import QuoteBuilder from "./pages/QuoteBuilder";
+import QuotePreview from "./pages/QuotePreview";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
@@ -29,6 +30,7 @@ const App = () => (
             <Route element={<ProtectedRoute />}>
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/quote/:id" element={<QuoteBuilder />} />
+              <Route path="/quote/:id/preview" element={<QuotePreview />} />
               <Route path="/settings" element={<Settings />} />
             </Route>
 

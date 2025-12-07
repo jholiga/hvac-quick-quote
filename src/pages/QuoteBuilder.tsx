@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
-  ArrowLeft, Plus, Trash2, FileText, Send, Save, 
-  Eye, ChevronDown, ChevronUp, DollarSign, Mail, MessageSquare
+  ArrowLeft, Plus, Trash2, FileText, Save, 
+  Eye, ChevronDown, ChevronUp, DollarSign
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,7 +41,6 @@ const QuoteBuilder = () => {
   const [showPreview, setShowPreview] = useState(false);
   const [pdfDataUrl, setPdfDataUrl] = useState<string>('');
   const [showAddItem, setShowAddItem] = useState(false);
-  const [showSendOptions, setShowSendOptions] = useState(false);
   const [isLoading, setIsLoading] = useState(!isNew);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -143,7 +142,7 @@ const QuoteBuilder = () => {
       const updatedQuote = { ...quote, status };
       await saveQuote(updatedQuote);
       setQuote(updatedQuote);
-      toast.success(status === 'sent' ? 'Quote sent!' : 'Quote saved!');
+      toast.success('Quote saved!');
       if (isNew) {
         navigate(`/quote/${quote.id}`, { replace: true });
       }
@@ -164,52 +163,21 @@ const QuoteBuilder = () => {
     toast.success('PDF downloaded!');
   };
 
-  const handleSendEmail = async () => {
-    if (!quote.customerEmail) {
-      toast.error('Customer email is required');
+  const handleGenerateQuote = async () => {
+    if (!quote.customerName.trim()) {
+      toast.error('Please enter customer name');
       return;
     }
-    
-    // Save quote first
-    await handleSave('sent');
-    
-    // Generate PDF and create mailto link
-    const subject = encodeURIComponent(`Quote ${quote.quoteNumber} - ${quote.jobTitle || 'HVAC Service'}`);
-    const body = encodeURIComponent(
-      `Hi ${quote.customerName},\n\n` +
-      `Please find attached your quote for ${quote.jobTitle || 'HVAC services'}.\n\n` +
-      `Quote Total: ${formatCurrency(totals.total)}\n\n` +
-      `Please let me know if you have any questions.\n\n` +
-      `Best regards,\n${settings.businessName}\n${settings.phone}`
-    );
-    
-    window.location.href = `mailto:${quote.customerEmail}?subject=${subject}&body=${body}`;
-    
-    // Also download the PDF so they can attach it
-    downloadPDF(quote, settings);
-    toast.success('Email opened with PDF downloaded - attach the PDF to send!');
-    setShowSendOptions(false);
-  };
 
-  const handleSendText = async () => {
-    if (!quote.customerPhone) {
-      toast.error('Customer phone is required');
-      return;
+    setIsSaving(true);
+    try {
+      await saveQuote(quote);
+      toast.success('Quote saved!');
+      navigate(`/quote/${quote.id}/preview`);
+    } catch (error) {
+      toast.error('Failed to save quote');
     }
-    
-    await handleSave('sent');
-    
-    const message = encodeURIComponent(
-      `Hi ${quote.customerName}! Here's your quote for ${quote.jobTitle || 'HVAC service'}: ` +
-      `${formatCurrency(totals.total)}. I'll send the full PDF shortly. - ${settings.businessName}`
-    );
-    
-    const phone = quote.customerPhone.replace(/\D/g, '');
-    window.location.href = `sms:${phone}?body=${message}`;
-    
-    downloadPDF(quote, settings);
-    toast.success('Text opened with PDF downloaded!');
-    setShowSendOptions(false);
+    setIsSaving(false);
   };
 
   if (isLoading) {
@@ -447,19 +415,12 @@ const QuoteBuilder = () => {
             Preview
           </Button>
           <Button 
-            variant="outline" 
-            className="flex-1 h-14"
-            onClick={handleDownload}
+            className="flex-[2] h-14 text-base font-semibold"
+            onClick={handleGenerateQuote}
+            disabled={isSaving}
           >
             <FileText className="mr-2 h-5 w-5" />
-            PDF
-          </Button>
-          <Button 
-            className="flex-1 h-14"
-            onClick={() => setShowSendOptions(true)}
-          >
-            <Send className="mr-2 h-5 w-5" />
-            Send
+            {isSaving ? 'Saving...' : 'Generate Quote'}
           </Button>
         </div>
       </div>
@@ -542,56 +503,6 @@ const QuoteBuilder = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Send Options Dialog */}
-      <Dialog open={showSendOptions} onOpenChange={setShowSendOptions}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Send Quote</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 py-4">
-            <Button 
-              variant="outline" 
-              className="h-16 w-full justify-start gap-4"
-              onClick={handleSendEmail}
-            >
-              <Mail className="h-6 w-6 text-primary" />
-              <div className="text-left">
-                <div className="font-medium">Send via Email</div>
-                <div className="text-sm text-muted-foreground">
-                  {quote.customerEmail || 'No email provided'}
-                </div>
-              </div>
-            </Button>
-            <Button 
-              variant="outline" 
-              className="h-16 w-full justify-start gap-4"
-              onClick={handleSendText}
-            >
-              <MessageSquare className="h-6 w-6 text-primary" />
-              <div className="text-left">
-                <div className="font-medium">Send via Text</div>
-                <div className="text-sm text-muted-foreground">
-                  {quote.customerPhone || 'No phone provided'}
-                </div>
-              </div>
-            </Button>
-            <Button 
-              variant="outline" 
-              className="h-16 w-full justify-start gap-4"
-              onClick={() => {
-                handleDownload();
-                setShowSendOptions(false);
-              }}
-            >
-              <FileText className="h-6 w-6 text-primary" />
-              <div className="text-left">
-                <div className="font-medium">Download PDF Only</div>
-                <div className="text-sm text-muted-foreground">Save and share manually</div>
-              </div>
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
