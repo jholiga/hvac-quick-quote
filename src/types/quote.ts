@@ -8,13 +8,16 @@ export interface LineItem {
 
 export interface Quote {
   id: string;
+  userId?: string;
   customerName: string;
   customerPhone: string;
   customerEmail: string;
   jobTitle: string;
+  scopeOfWork: string;
   internalNotes: string;
   lineItems: LineItem[];
   isLumpSum: boolean;
+  lumpSumPrice: number;
   taxRate: number;
   status: 'draft' | 'sent';
   createdAt: string;
@@ -23,6 +26,8 @@ export interface Quote {
 }
 
 export interface BusinessSettings {
+  id?: string;
+  userId?: string;
   businessName: string;
   phone: string;
   email: string;
@@ -30,6 +35,7 @@ export interface BusinessSettings {
   defaultMarkup: number;
   laborRate: number;
   taxRate: number;
+  quoteTerms: string[];
 }
 
 export const DEFAULT_SETTINGS: BusinessSettings = {
@@ -40,6 +46,11 @@ export const DEFAULT_SETTINGS: BusinessSettings = {
   defaultMarkup: 2.5,
   laborRate: 125,
   taxRate: 0,
+  quoteTerms: [
+    'Quote valid for 30 days',
+    'Payment due upon completion',
+    '1-year warranty on parts and labor',
+  ],
 };
 
 export const HVAC_DEFAULTS: Omit<LineItem, 'id'>[] = [

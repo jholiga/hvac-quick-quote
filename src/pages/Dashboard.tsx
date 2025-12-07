@@ -8,7 +8,7 @@ import { Quote } from '@/types/quote';
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { logout, userEmail } = useAuth();
+  const { logout } = useAuth();
   const [quotes, setQuotes] = useState<Quote[]>([]);
 
   useEffect(() => {

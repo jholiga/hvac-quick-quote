@@ -1,31 +1,41 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, Upload, X } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ArrowLeft, Save, Upload, X, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { storage } from '@/lib/storage';
+import { useSettings } from '@/hooks/useSettings';
 import { BusinessSettings, DEFAULT_SETTINGS } from '@/types/quote';
 import { toast } from 'sonner';
 
 const Settings = () => {
-  const navigate = useNavigate();
+  const { settings: savedSettings, saveSettings, isLoading } = useSettings();
   const [settings, setSettings] = useState<BusinessSettings>(DEFAULT_SETTINGS);
   const [isDirty, setIsDirty] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [newTerm, setNewTerm] = useState('');
 
   useEffect(() => {
-    setSettings(storage.getSettings());
-  }, []);
+    if (!isLoading) {
+      setSettings(savedSettings);
+    }
+  }, [savedSettings, isLoading]);
 
   const updateSettings = (updates: Partial<BusinessSettings>) => {
     setSettings(prev => ({ ...prev, ...updates }));
     setIsDirty(true);
   };
 
-  const handleSave = () => {
-    storage.saveSettings(settings);
-    setIsDirty(false);
-    toast.success('Settings saved!');
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await saveSettings(settings);
+      setIsDirty(false);
+      toast.success('Settings saved!');
+    } catch (error) {
+      toast.error('Failed to save settings');
+    }
+    setIsSaving(false);
   };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -49,6 +59,27 @@ const Settings = () => {
     updateSettings({ logo: null });
   };
 
+  const addTerm = () => {
+    if (newTerm.trim()) {
+      updateSettings({ quoteTerms: [...settings.quoteTerms, newTerm.trim()] });
+      setNewTerm('');
+    }
+  };
+
+  const removeTerm = (index: number) => {
+    updateSettings({ 
+      quoteTerms: settings.quoteTerms.filter((_, i) => i !== index) 
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       {/* Header */}
@@ -63,9 +94,9 @@ const Settings = () => {
             <span className="font-semibold text-foreground">Settings</span>
           </div>
           {isDirty && (
-            <Button size="sm" onClick={handleSave}>
+            <Button size="sm" onClick={handleSave} disabled={isSaving}>
               <Save className="mr-1 h-4 w-4" />
-              Save
+              {isSaving ? 'Saving...' : 'Save'}
             </Button>
           )}
         </div>
@@ -208,14 +239,53 @@ const Settings = () => {
             </div>
           </section>
 
+          {/* Quote Terms */}
+          <section className="mb-8 animate-fade-in" style={{ animationDelay: '0.3s' }}>
+            <h2 className="section-title mb-4">Quote Terms & Conditions</h2>
+            <div className="rounded-xl border border-border bg-card p-4">
+              <p className="mb-4 text-sm text-muted-foreground">
+                These terms appear at the bottom of your PDF quotes.
+              </p>
+              
+              <div className="space-y-2 mb-4">
+                {settings.quoteTerms.map((term, index) => (
+                  <div 
+                    key={index}
+                    className="flex items-center gap-2 rounded-lg border border-border bg-muted/50 p-3"
+                  >
+                    <span className="flex-1 text-sm">{term}</span>
+                    <button
+                      onClick={() => removeTerm(index)}
+                      className="text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex gap-2">
+                <Input
+                  value={newTerm}
+                  onChange={(e) => setNewTerm(e.target.value)}
+                  placeholder="Add new term..."
+                  onKeyDown={(e) => e.key === 'Enter' && addTerm()}
+                />
+                <Button variant="outline" onClick={addTerm}>
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </section>
+
           {/* Save Button */}
           <Button 
             className="h-14 w-full text-base font-semibold"
             onClick={handleSave}
-            disabled={!isDirty}
+            disabled={!isDirty || isSaving}
           >
             <Save className="mr-2 h-5 w-5" />
-            Save Settings
+            {isSaving ? 'Saving...' : 'Save Settings'}
           </Button>
         </div>
       </main>

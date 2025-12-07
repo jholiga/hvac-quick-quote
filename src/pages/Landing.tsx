@@ -1,10 +1,10 @@
-import { Wrench, FileText, Smartphone } from 'lucide-react';
+import { Wrench, FileText, Smartphone, Zap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 
 const Landing = () => {
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, isLoading } = useAuth();
 
   const features = [
     {
@@ -14,15 +14,23 @@ const Landing = () => {
     },
     {
       icon: Wrench,
-      title: 'HVAC-Specific Layout',
+      title: 'HVAC-Specific',
       description: 'Pre-loaded with common parts, markup helpers, and trade pricing.',
     },
     {
       icon: FileText,
-      title: 'Customer-Ready PDFs',
-      description: 'Professional quotes generated instantly. Send before you leave the job.',
+      title: 'Professional PDFs',
+      description: 'Clean quotes generated instantly. Send before you leave the job.',
     },
   ];
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -46,7 +54,7 @@ const Landing = () => {
                   <Button variant="ghost">Log In</Button>
                 </Link>
                 <Link to="/auth?mode=signup">
-                  <Button>Create Account</Button>
+                  <Button>Get Started</Button>
                 </Link>
               </>
             )}
@@ -58,15 +66,19 @@ const Landing = () => {
       <section className="relative overflow-hidden py-16 md:py-24">
         <div className="container">
           <div className="mx-auto max-w-3xl text-center">
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-1.5">
+              <Zap className="h-4 w-4 text-primary" />
+              <span className="text-sm font-medium text-primary">Built for HVAC Pros</span>
+            </div>
             <h1 className="animate-fade-in text-4xl font-extrabold tracking-tight text-foreground md:text-5xl lg:text-6xl">
-              Fast, Professional HVAC Quotes
-              <span className="block text-primary">— From the Field.</span>
+              Professional Quotes
+              <span className="block text-primary">In 60 Seconds</span>
             </h1>
             <p className="mt-6 animate-slide-up text-lg text-muted-foreground md:text-xl" style={{ animationDelay: '0.1s' }}>
-              Create clean lump-sum or itemized quotes in seconds. 
-              Built for HVAC technicians who need to quote on-site.
+              Create clean, professional quotes on-site. 
+              Enter the price, add scope, send to customer. Done.
             </p>
-            <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row" style={{ animationDelay: '0.2s' }}>
+            <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row animate-slide-up" style={{ animationDelay: '0.2s' }}>
               {isLoggedIn ? (
                 <Link to="/dashboard">
                   <Button size="lg" className="h-14 px-8 text-lg">
@@ -77,7 +89,7 @@ const Landing = () => {
                 <>
                   <Link to="/auth?mode=signup">
                     <Button size="lg" className="h-14 px-8 text-lg">
-                      Get Started Free
+                      Start Free
                     </Button>
                   </Link>
                   <Link to="/auth?mode=login">
@@ -91,47 +103,37 @@ const Landing = () => {
           </div>
         </div>
 
-        {/* Screenshot Placeholder */}
+        {/* App Preview */}
         <div className="container mt-16">
-          <div className="mx-auto max-w-4xl">
+          <div className="mx-auto max-w-lg">
             <div className="relative overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
-              <div className="flex h-8 items-center gap-2 border-b border-border bg-muted px-4">
-                <div className="h-3 w-3 rounded-full bg-destructive/60"></div>
-                <div className="h-3 w-3 rounded-full bg-warning/60"></div>
-                <div className="h-3 w-3 rounded-full bg-success/60"></div>
+              {/* Phone frame */}
+              <div className="flex h-6 items-center justify-center border-b border-border bg-muted">
+                <div className="h-1 w-16 rounded-full bg-border"></div>
               </div>
-              <div className="aspect-[16/10] bg-gradient-to-br from-muted to-background p-8">
-                <div className="grid h-full gap-4 md:grid-cols-3">
-                  <div className="space-y-4 md:col-span-2">
-                    <div className="h-8 w-48 rounded bg-primary/20"></div>
-                    <div className="space-y-2">
-                      <div className="h-12 rounded-lg bg-secondary"></div>
-                      <div className="h-12 rounded-lg bg-secondary"></div>
-                      <div className="h-12 rounded-lg bg-secondary"></div>
-                    </div>
-                    <div className="h-4 w-32 rounded bg-muted-foreground/20"></div>
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <div className="h-10 flex-1 rounded bg-secondary"></div>
-                        <div className="h-10 w-20 rounded bg-secondary"></div>
-                        <div className="h-10 w-24 rounded bg-secondary"></div>
+              <div className="p-4 space-y-4">
+                {/* Header preview */}
+                <div className="flex items-center justify-between">
+                  <div className="h-6 w-24 rounded bg-primary/20"></div>
+                  <div className="h-6 w-6 rounded bg-muted"></div>
+                </div>
+                {/* New Quote Button */}
+                <div className="h-12 rounded-lg bg-primary flex items-center justify-center">
+                  <span className="text-sm font-medium text-primary-foreground">+ New HVAC Quote</span>
+                </div>
+                {/* Quote cards */}
+                <div className="space-y-2">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="rounded-lg border border-border bg-muted/30 p-3">
+                      <div className="flex justify-between items-start">
+                        <div className="space-y-1.5">
+                          <div className="h-4 w-28 rounded bg-foreground/20"></div>
+                          <div className="h-3 w-36 rounded bg-muted-foreground/20"></div>
+                        </div>
+                        <div className="h-5 w-16 rounded bg-primary/20"></div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <div className="h-10 flex-1 rounded bg-secondary"></div>
-                        <div className="h-10 w-20 rounded bg-secondary"></div>
-                        <div className="h-10 w-24 rounded bg-secondary"></div>
-                      </div>
                     </div>
-                  </div>
-                  <div className="space-y-4">
-                    <div className="rounded-xl bg-card p-4 shadow-sm ring-1 ring-border">
-                      <div className="h-4 w-20 rounded bg-muted-foreground/20"></div>
-                      <div className="mt-4 h-8 w-full rounded bg-primary/30"></div>
-                      <div className="mt-2 h-6 w-24 rounded bg-muted-foreground/10"></div>
-                    </div>
-                    <div className="h-12 rounded-lg bg-primary"></div>
-                    <div className="h-12 rounded-lg bg-secondary"></div>
-                  </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -140,20 +142,20 @@ const Landing = () => {
       </section>
 
       {/* Features */}
-      <section className="border-t border-border bg-muted/50 py-16 md:py-24">
+      <section className="border-t border-border bg-muted/30 py-16 md:py-24">
         <div className="container">
-          <div className="mx-auto grid max-w-5xl gap-8 md:grid-cols-3">
+          <div className="mx-auto grid max-w-4xl gap-6 md:grid-cols-3">
             {features.map((feature, index) => (
               <div 
                 key={feature.title}
-                className="animate-slide-up rounded-2xl bg-card p-6 shadow-sm ring-1 ring-border"
+                className="animate-slide-up rounded-xl bg-card p-6 shadow-sm ring-1 ring-border"
                 style={{ animationDelay: `${0.1 * (index + 1)}s` }}
               >
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
                   <feature.icon className="h-6 w-6 text-primary" />
                 </div>
                 <h3 className="mt-4 text-lg font-semibold text-foreground">{feature.title}</h3>
-                <p className="mt-2 text-muted-foreground">{feature.description}</p>
+                <p className="mt-2 text-sm text-muted-foreground">{feature.description}</p>
               </div>
             ))}
           </div>
@@ -165,10 +167,10 @@ const Landing = () => {
         <div className="container">
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="text-3xl font-bold text-foreground md:text-4xl">
-              Start quoting in 60 seconds
+              Stop texting prices
             </h2>
             <p className="mt-4 text-lg text-muted-foreground">
-              No credit card required. No complicated setup.
+              Send professional quotes that close jobs.
             </p>
             {!isLoggedIn && (
               <Link to="/auth?mode=signup" className="mt-8 inline-block">

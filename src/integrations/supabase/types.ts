@@ -14,7 +14,108 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      business_settings: {
+        Row: {
+          business_name: string
+          created_at: string
+          default_markup: number | null
+          email: string | null
+          id: string
+          labor_rate: number | null
+          logo: string | null
+          phone: string | null
+          quote_terms: string[] | null
+          tax_rate: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          business_name?: string
+          created_at?: string
+          default_markup?: number | null
+          email?: string | null
+          id?: string
+          labor_rate?: number | null
+          logo?: string | null
+          phone?: string | null
+          quote_terms?: string[] | null
+          tax_rate?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          business_name?: string
+          created_at?: string
+          default_markup?: number | null
+          email?: string | null
+          id?: string
+          labor_rate?: number | null
+          logo?: string | null
+          phone?: string | null
+          quote_terms?: string[] | null
+          tax_rate?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      quotes: {
+        Row: {
+          created_at: string
+          customer_email: string | null
+          customer_name: string
+          customer_phone: string | null
+          id: string
+          internal_notes: string | null
+          is_lump_sum: boolean | null
+          job_title: string | null
+          line_items: Json | null
+          lump_sum_price: number | null
+          quote_number: string
+          scope_of_work: string | null
+          status: string
+          tax_rate: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          customer_email?: string | null
+          customer_name: string
+          customer_phone?: string | null
+          id?: string
+          internal_notes?: string | null
+          is_lump_sum?: boolean | null
+          job_title?: string | null
+          line_items?: Json | null
+          lump_sum_price?: number | null
+          quote_number: string
+          scope_of_work?: string | null
+          status?: string
+          tax_rate?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          customer_email?: string | null
+          customer_name?: string
+          customer_phone?: string | null
+          id?: string
+          internal_notes?: string | null
+          is_lump_sum?: boolean | null
+          job_title?: string | null
+          line_items?: Json | null
+          lump_sum_price?: number | null
+          quote_number?: string
+          scope_of_work?: string | null
+          status?: string
+          tax_rate?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
