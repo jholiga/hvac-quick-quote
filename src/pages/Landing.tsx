@@ -2,6 +2,7 @@ import { Check, FileText, MessageSquare, Send, Smartphone, Clock, Zap } from 'lu
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
+import SampleQuoteModal from '@/components/SampleQuoteModal';
 
 const Landing = () => {
   const { isLoggedIn, isLoading } = useAuth();
@@ -92,16 +93,13 @@ const Landing = () => {
                 Try It Free
               </Button>
             </Link>
-            <a 
-              href="/sample-quote.pdf" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="w-full sm:w-auto"
-            >
-              <Button variant="outline" size="lg" className="w-full h-14 text-lg px-8">
-                See Example Quote
-              </Button>
-            </a>
+            <SampleQuoteModal
+              trigger={
+                <Button variant="outline" size="lg" className="w-full sm:w-auto h-14 text-lg px-8">
+                  See Example Quote
+                </Button>
+              }
+            />
           </div>
 
           <p className="mt-4 text-sm text-muted-foreground">
@@ -259,16 +257,7 @@ const Landing = () => {
             </div>
           </div>
 
-          <a 
-            href="/sample-quote.pdf" 
-            target="_blank" 
-            rel="noopener noreferrer"
-          >
-            <Button variant="outline" size="lg" className="h-12 px-6">
-              <FileText className="h-4 w-4 mr-2" />
-              View Sample Quote
-            </Button>
-          </a>
+          <SampleQuoteModal />
         </div>
       </section>
 
