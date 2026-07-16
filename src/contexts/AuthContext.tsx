@@ -42,7 +42,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = async (email: string, password: string) => {
     if (!email || !password) {
-      return { success: false, error: 'Please enter email and password' };
+      return { success: false, error: 'Please enter a valid email and password' };
     }
 
     const { error } = await supabase.auth.signInWithPassword({
@@ -62,11 +62,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const signup = async (email: string, password: string) => {
     if (!email || !password) {
-      return { success: false, error: 'Please enter email and password' };
+      return { success: false, error: 'Please enter a valid email and password' };
     }
 
     if (password.length < 6) {
-      return { success: false, error: 'Password must be at least 6 characters' };
+      return { success: false, error: 'Password must be at least 10 characters in length' };
     }
 
     const redirectUrl = `${window.location.origin}/dashboard`;
