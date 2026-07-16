@@ -33,7 +33,7 @@ const Settings = () => {
       setIsDirty(false);
       toast.success('Settings saved!');
     } catch (error) {
-      toast.error('Failed to save settings');
+      toast.error('Failed to save new settings');
     }
     setIsSaving(false);
   };
